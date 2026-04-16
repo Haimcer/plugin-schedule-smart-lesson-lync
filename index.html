@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Pública Booking Widget</title>
+  <style>
+    :root {
+      --sp-primary: #2d6cdf;
+      --sp-secondary: #00c2a8;
+      --sp-accent: #111827;
+      --sp-bg: #f6f7fb;
+      --sp-surface: #ffffff;
+      --sp-text: #111827;
+      --sp-muted: #667085;
+      --sp-border: #e5e7eb;
+      --sp-radius: 24px;
+      --sp-font: Arial, Helvetica, sans-serif;
+      --sp-font-size: 16px;
+      --sp-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+      --sp-sidebar-width: 330px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; }
+    body {
+      font-family: var(--sp-font);
+      font-size: var(--sp-font-size);
+      color: var(--sp-text);
+      background: transparent;
+    }
+
+    .sp-widget {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      color: var(--sp-text);
+    }
+
+    .sp-card {
+      background: var(--sp-surface);
+      border: 1px solid var(--sp-border);
+      border-radius: var(--sp-radius);
+      box-shadow: var(--sp-shadow);
+      overflow: hidden;
+    }
+
+    .sp-screen { display: none; }
+    .sp-screen.is-active { display: block; }
+
+    .sp-loading, .sp-error {
+      background: var(--sp-surface);
+      border: 1px solid var(--sp-border);
+      border-radius: var(--sp-radius);
+      padding: 42px 28px;
+      text-align: center;
+      box-shadow: var(--sp-shadow);
+    }
+
+    .sp-loading__spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 3px solid rgba(0,0,0,0.08);
+      border-top-color: var(--sp-primary);
+      margin: 0 auto 16px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .sp-launch {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .sp-launch__top {
+      padding: 32px 24px 22px;
+      text-align: center;
+      border-bottom: 1px solid var(--sp-border);
+      background: linear-gradient(180deg, rgba(0,0,0,0.01), transparent);
+    }
+
+    .sp-avatar {
+      width: 92px;
+      height: 92px;
+      border-radius: 18px;
+      overflow: hidden;
+      margin: 0 auto 14px;
+      background: #eef2f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--sp-border);
+    }
+
+    .sp-avatar img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sp-brand-name {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.08;
+      font-weight: 800;
+      color: var(--sp-accent);
+      letter-spacing: -0.02em;
+    }
+
+    .sp-kicker {
+      margin: 0 0 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: var(--sp-muted);
+      font-weight: 700;
+    }
+
+    .sp-launch__meeting {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding: 20px 22px;
+    }
+
+    .sp-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--sp-primary);
+      display: inline-block;
+      margin-right: 10px;
+      flex: 0 0 auto;
+    }
+
+    .sp-title-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 800;
+      font-size: 17px;
+      line-height: 1.4;
+    }
+
+    .sp-description {
+      margin: 0 0 10px;
+      color: var(--sp-muted);
+      line-height: 1.7;
+    }
+
+    .sp-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px 18px;
+      color: var(--sp-text);
+      font-size: 14px;
+    }
+
+    .sp-meta__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .sp-meta__item svg { width: 16px; height: 16px; color: var(--sp-muted); }
+
+    .sp-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      background: var(--sp-primary);
+      color: #fff;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      padding: 15px 22px;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+      box-shadow: 0 8px 22px color-mix(in srgb, var(--sp-primary) 18%, transparent);
+    }
+
+    .sp-btn:hover { transform: translateY(-1px); }
+    .sp-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .sp-btn--ghost {
+      background: transparent;
+      color: var(--sp-primary);
+      border: 1.5px solid color-mix(in srgb, var(--sp-primary) 40%, var(--sp-border));
+      box-shadow: none;
+    }
+
+    .sp-flow {
+      display: grid;
+      grid-template-columns: minmax(260px, var(--sp-sidebar-width)) 1fr;
+      min-height: 720px;
+    }
+
+    .sp-sidebar {
+      border-right: 1px solid var(--sp-border);
+      padding: 28px 22px;
+    }
+
+    .sp-main {
+      padding: 28px 22px;
+      min-width: 0;
+    }
+
+    .sp-back {
+      appearance: none;
+      border: 1px solid var(--sp-border);
+      background: #fff;
+      color: var(--sp-text);
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    .sp-sidebar .sp-avatar {
+      width: 82px;
+      height: 82px;
+      margin: 0 0 14px;
+    }
+
+    .sp-sidebar__name {
+      margin: 0 0 10px;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--sp-text);
+    }
+
+    .sp-sidebar__title {
+      margin: 0 0 18px;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: var(--sp-accent);
+    }
+
+    .sp-sidebar__desc {
+      margin: 18px 0 0;
+      color: var(--sp-text);
+      line-height: 1.7;
+    }
+
+    .sp-step-title {
+      margin: 0 0 22px;
+      font-size: 19px;
+      line-height: 1.3;
+      font-weight: 800;
+      color: var(--sp-accent);
+    }
+
+    .sp-calendar { max-width: 390px; }
+    .sp-calendar__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .sp-month-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--sp-accent);
+    }
+
+    .sp-icon-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--sp-primary);
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sp-icon-btn:hover { background: rgba(0,0,0,0.04); }
+
+    .sp-weekdays,
+    .sp-days {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .sp-weekday {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--sp-accent);
+      padding-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .sp-day {
+      height: 46px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--sp-text);
+      font-size: 18px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .18s ease;
+    }
+
+    .sp-day:disabled {
+      cursor: default;
+      color: #a0a8b5;
+      opacity: .6;
+    }
+
+    .sp-day.is-selectable {
+      background: #e9edf2;
+      color: var(--sp-accent);
+    }
+
+    .sp-day.is-selected {
+      background: var(--sp-primary);
+      color: #fff;
+      box-shadow: inset 0 -3px 0 rgba(255,255,255,0.18);
+    }
+
+    .sp-day.is-today {
+      border-color: color-mix(in srgb, var(--sp-primary) 35%, var(--sp-border));
+    }
+
+    .sp-timezone { margin-top: 26px; max-width: 390px; }
+    .sp-label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--sp-accent);
+    }
+
+    .sp-select,
+    .sp-input,
+    .sp-textarea {
+      width: 100%;
+      border: 1px solid var(--sp-border);
+      background: #fff;
+      color: var(--sp-text);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font: inherit;
+      min-height: 52px;
+      outline: none;
+    }
+
+    .sp-select:focus,
+    .sp-input:focus,
+    .sp-textarea:focus {
+      border-color: color-mix(in srgb, var(--sp-primary) 55%, var(--sp-border));
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--sp-primary) 12%, transparent);
+    }
+
+    .sp-times-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 220px);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .sp-times-list {
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 6px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .sp-time-slot {
+      border: 1px solid var(--sp-border);
+      background: #fff;
+      color: var(--sp-accent);
+      border-radius: 12px;
+      min-height: 52px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: all .18s ease;
+    }
+
+    .sp-time-slot:hover { border-color: var(--sp-primary); }
+    .sp-time-slot.is-selected {
+      border-color: var(--sp-primary);
+      background: color-mix(in srgb, var(--sp-primary) 7%, #fff);
+      color: var(--sp-primary);
+    }
+
+    .sp-time-slot__next {
+      display: none;
+      border-radius: 10px;
+      background: var(--sp-primary);
+      color: #fff;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .sp-time-slot.is-selected .sp-time-slot__next { display: inline-flex; }
+
+    .sp-side-date {
+      position: sticky;
+      top: 0;
+      border-left: 1px solid var(--sp-border);
+      padding-left: 18px;
+    }
+
+    .sp-side-date__label {
+      margin: 0 0 14px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--sp-accent);
+    }
+
+    .sp-form {
+      max-width: 620px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .sp-form__row { display: grid; gap: 8px; }
+    .sp-textarea { min-height: 100px; resize: vertical; }
+    .sp-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
+
+    .sp-summary {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+      font-size: 15px;
+    }
+
+    .sp-summary__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--sp-text);
+      line-height: 1.6;
+    }
+
+    .sp-summary__item svg { width: 18px; height: 18px; color: var(--sp-muted); }
+
+    .sp-success {
+      padding: 36px 28px;
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .sp-success__icon {
+      width: 74px;
+      height: 74px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in srgb, var(--sp-primary) 12%, #fff);
+      color: var(--sp-primary);
+      margin-bottom: 18px;
+    }
+
+    .sp-success__title {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.15;
+      font-weight: 800;
+      color: var(--sp-accent);
+    }
+
+    .sp-success__text { margin: 0 auto 18px; max-width: 620px; color: var(--sp-muted); line-height: 1.8; }
+    .sp-success__box {
+      text-align: left;
+      background: #f8fafc;
+      border: 1px solid var(--sp-border);
+      border-radius: 18px;
+      padding: 18px;
+      max-width: 520px;
+      margin: 0 auto 22px;
+    }
+
+    .sp-empty {
+      border: 1px dashed var(--sp-border);
+      border-radius: 14px;
+      padding: 18px;
+      color: var(--sp-muted);
+      line-height: 1.7;
+      background: #fafbfc;
+    }
+
+    .sp-error__actions,
+    .sp-success__actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .sp-flow {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .sp-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--sp-border);
+      }
+
+      .sp-times-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sp-side-date {
+        border-left: 0;
+        padding-left: 0;
+        border-top: 1px solid var(--sp-border);
+        padding-top: 18px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .sp-brand-name { font-size: 26px; }
+      .sp-launch__meeting {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+      }
+      .sp-btn { width: 100%; }
+      .sp-sidebar__title { font-size: 24px; }
+      .sp-main, .sp-sidebar { padding: 20px 16px; }
+      .sp-weekdays, .sp-days { gap: 8px; }
+      .sp-day { height: 42px; font-size: 16px; }
+      .sp-step-title { font-size: 18px; }
+      .sp-time-slot { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sp-widget" id="smart-booking-widget">
+    <div class="sp-loading" id="sp-loading">
+      <div class="sp-loading__spinner"></div>
+      <div id="sp-loading-text">Carregando agenda…</div>
+    </div>
+
+    <div class="sp-error" id="sp-error" hidden>
+      <h2 style="margin:0 0 8px;font-size:24px;">Não foi possível carregar a agenda</h2>
+      <p id="sp-error-message" style="margin:0;color:var(--sp-muted);line-height:1.8;">Verifique a configuração do widget e tente novamente.</p>
+      <div class="sp-error__actions">
+        <button class="sp-btn" id="sp-retry-btn" type="button">Tentar novamente</button>
+      </div>
+    </div>
+
+    <div id="sp-app" hidden>
+      <section class="sp-screen is-active" data-screen="launch">
+        <div class="sp-card sp-launch">
+          <div class="sp-launch__top">
+            <p class="sp-kicker" id="sp-launch-kicker">Agendamento online</p>
+            <div class="sp-avatar"><img id="sp-launch-avatar" alt="Logo" /></div>
+            <h1 class="sp-brand-name" id="sp-launch-brand"></h1>
+          </div>
+          <div class="sp-launch__meeting">
+            <div>
+              <div class="sp-title-row"><span class="sp-dot"></span><span id="sp-meeting-title">Consultoria</span></div>
+              <p class="sp-description" id="sp-meeting-description">Escolha o melhor dia e horário para agendar.</p>
+              <div class="sp-meta">
+                <div class="sp-meta__item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+                  <span id="sp-meta-duration"></span>
+                </div>
+                <div class="sp-meta__item" id="sp-meta-website-wrap" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4"></path><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19"></path></svg>
+                  <a id="sp-meta-website" href="#" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;overflow-wrap:anywhere;"></a>
+                </div>
+              </div>
+            </div>
+            <div>
+              <button class="sp-btn sp-btn--ghost" id="sp-start-btn" type="button">Reservar agora</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sp-screen" data-screen="schedule">
+        <div class="sp-card sp-flow">
+          <aside class="sp-sidebar">
+            <button class="sp-back" data-back="launch" type="button" aria-label="Voltar">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <div class="sp-avatar"><img id="sp-side-avatar" alt="Logo" /></div>
+            <p class="sp-sidebar__name" id="sp-side-name"></p>
+            <h2 class="sp-sidebar__title" id="sp-side-title"></h2>
+            <div class="sp-summary">
+              <div class="sp-summary__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+                <span id="sp-side-duration"></span>
+              </div>
+              <div class="sp-summary__item" id="sp-side-website-wrap" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4"></path><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L13 19"></path></svg>
+                <a id="sp-side-website" href="#" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;overflow-wrap:anywhere;"></a>
+              </div>
+              <div class="sp-summary__item" id="sp-side-datetime-wrap" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
+                <span id="sp-side-datetime"></span>
+              </div>
+              <div class="sp-summary__item" id="sp-side-timezone-wrap" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"></path></svg>
+                <span id="sp-side-timezone"></span>
+              </div>
+            </div>
+            <p class="sp-sidebar__desc" id="sp-side-description"></p>
+          </aside>
+
+          <main class="sp-main">
+            <div id="sp-calendar-step">
+              <h3 class="sp-step-title" id="sp-step-title-date">Escolha uma data</h3>
+              <div class="sp-calendar">
+                <div class="sp-calendar__header">
+                  <h4 class="sp-month-title" id="sp-month-title"></h4>
+                  <div>
+                    <button class="sp-icon-btn" id="sp-prev-month" type="button" aria-label="Mês anterior">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
+                    </button>
+                    <button class="sp-icon-btn" id="sp-next-month" type="button" aria-label="Próximo mês">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="sp-weekdays" id="sp-weekdays"></div>
+                <div class="sp-days" id="sp-days"></div>
+              </div>
+
+              <div class="sp-timezone">
+                <label class="sp-label" for="sp-timezone">Fuso horário</label>
+                <select class="sp-select" id="sp-timezone"></select>
+              </div>
+            </div>
+
+            <div id="sp-times-step" hidden>
+              <div class="sp-times-layout">
+                <div>
+                  <h3 class="sp-step-title" id="sp-step-title-time">Escolha um horário</h3>
+                  <div class="sp-times-list" id="sp-times-list"></div>
+                  <div class="sp-empty" id="sp-times-empty" hidden>Nenhum horário disponível para este dia.</div>
+                </div>
+                <aside class="sp-side-date">
+                  <p class="sp-side-date__label" id="sp-selected-date-label"></p>
+                </aside>
+              </div>
+            </div>
+          </main>
+        </div>
+      </section>
+
+      <section class="sp-screen" data-screen="form">
+        <div class="sp-card sp-flow">
+          <aside class="sp-sidebar">
+            <button class="sp-back" data-back="schedule" type="button" aria-label="Voltar">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
+            </button>
+            <div class="sp-avatar"><img id="sp-form-avatar" alt="Logo" /></div>
+            <p class="sp-sidebar__name" id="sp-form-name"></p>
+            <h2 class="sp-sidebar__title" id="sp-form-title"></h2>
+            <div class="sp-summary">
+              <div class="sp-summary__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+                <span id="sp-form-duration"></span>
+              </div>
+              <div class="sp-summary__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>
+                <span id="sp-form-datetime"></span>
+              </div>
+              <div class="sp-summary__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"></path></svg>
+                <span id="sp-form-timezone"></span>
+              </div>
+            </div>
+          </aside>
+
+          <main class="sp-main">
+            <h3 class="sp-step-title" id="sp-step-title-form">Digite os detalhes</h3>
+            <form class="sp-form" id="sp-booking-form">
+              <div class="sp-form__row">
+                <label class="sp-label" for="sp-name">Seu nome *</label>
+                <input class="sp-input" id="sp-name" name="name" required autocomplete="name" />
+              </div>
+              <div class="sp-form__row">
+                <label class="sp-label" for="sp-email">Seu e-mail *</label>
+                <input class="sp-input" id="sp-email" name="email" type="email" required autocomplete="email" />
+              </div>
+              <div class="sp-form__row">
+                <label class="sp-label" for="sp-phone">WhatsApp</label>
+                <input class="sp-input" id="sp-phone" name="phone" autocomplete="tel" />
+              </div>
+              <div class="sp-form__row">
+                <label class="sp-label" for="sp-notes">Sobre o que é esta reunião?</label>
+                <textarea class="sp-textarea" id="sp-notes" name="notes"></textarea>
+              </div>
+              <div class="sp-actions">
+                <button class="sp-btn" id="sp-submit-btn" type="submit">Agendar reunião</button>
+              </div>
+            </form>
+          </main>
+        </div>
+      </section>
+
+      <section class="sp-screen" data-screen="success">
+        <div class="sp-card sp-success">
+          <div class="sp-success__icon">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"></path></svg>
+          </div>
+          <h2 class="sp-success__title" id="sp-success-title">Agendamento confirmado</h2>
+          <p class="sp-success__text" id="sp-success-text">Seu horário foi reservado com sucesso.</p>
+          <div class="sp-success__box">
+            <div class="sp-summary">
+              <div class="sp-summary__item"><strong id="sp-success-professional"></strong></div>
+              <div class="sp-summary__item" id="sp-success-datetime"></div>
+              <div class="sp-summary__item" id="sp-success-email"></div>
+            </div>
+          </div>
+          <div class="sp-success__actions">
+            <button class="sp-btn sp-btn--ghost" id="sp-reset-btn" type="button">Novo agendamento</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const DEFAULT_API_BASE = 'https://api.techinnovatelabs.com';
+      const DEFAULT_TIMEZONES = [
+        'America/Sao_Paulo',
+        'America/Manaus',
+        'America/Belem',
+        'America/Fortaleza',
+        'America/Cuiaba',
+        'America/Rio_Branco',
+        'UTC'
+      ];
+
+      const translations = {
+        'pt-BR': {
+          loading: 'Carregando agenda…',
+          errorLoad: 'Verifique o ID do profissional, a API e as permissões de CORS.',
+          launchKicker: 'Agendamento online',
+          meetingTitle: 'Business Consultation',
+          meetingDescription: 'Escolha o melhor dia e horário para agendar.',
+          reserveNow: 'Reservar agora',
+          chooseDate: 'Escolha uma data',
+          chooseTime: 'Escolha um horário',
+          timezone: 'Fuso horário',
+          noTimes: 'Nenhum horário disponível para este dia.',
+          next: 'Próximo',
+          enterDetails: 'Digite os detalhes',
+          yourName: 'Seu nome *',
+          yourEmail: 'Seu e-mail *',
+          whatsapp: 'WhatsApp',
+          meetingAbout: 'Sobre o que é esta reunião?',
+          scheduleMeeting: 'Agendar reunião',
+          confirmedTitle: 'Agendamento confirmado',
+          confirmedText: 'Seu horário foi reservado com sucesso. Se o número informado estiver habilitado, a confirmação também poderá chegar por WhatsApp.',
+          newBooking: 'Novo agendamento',
+          durationMinutes: minutes => `${minutes} minutos`,
+          weekdaysShort: ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'],
+          appointmentType: 'Consultoria',
+          failedAvailability: 'Não foi possível carregar os horários deste dia.',
+          failedBooking: 'Não foi possível concluir o agendamento.',
+          selectDateFirst: 'Escolha uma data primeiro.',
+          selectedDatePrefix: '',
+          invalidEmail: 'Digite um e-mail válido.',
+          requiredFields: 'Preencha nome e e-mail.',
+          appointmentSummary: (dateText, timeText) => `${timeText}, ${dateText}`,
+          successEmail: email => `Confirmação enviada para ${email}`
+        },
+        'en-US': {
+          loading: 'Loading schedule…',
+          errorLoad: 'Check the professional ID, API URL, and CORS permissions.',
+          launchKicker: 'Online booking',
+          meetingTitle: 'Business Consultation',
+          meetingDescription: 'Choose the best day and time to book.',
+          reserveNow: 'Book now',
+          chooseDate: 'Choose a date',
+          chooseTime: 'Choose a time',
+          timezone: 'Timezone',
+          noTimes: 'No times available for this day.',
+          next: 'Next',
+          enterDetails: 'Enter your details',
+          yourName: 'Your name *',
+          yourEmail: 'Your email *',
+          whatsapp: 'WhatsApp',
+          meetingAbout: 'What is this meeting about?',
+          scheduleMeeting: 'Schedule meeting',
+          confirmedTitle: 'Booking confirmed',
+          confirmedText: 'Your time has been reserved successfully.',
+          newBooking: 'Book another time',
+          durationMinutes: minutes => `${minutes} minutes`,
+          weekdaysShort: ['SUN','MON','TUE','WED','THU','FRI','SAT'],
+          appointmentType: 'Consultation',
+          failedAvailability: 'Could not load times for this day.',
+          failedBooking: 'Could not complete the booking.',
+          selectDateFirst: 'Choose a date first.',
+          selectedDatePrefix: '',
+          invalidEmail: 'Enter a valid email.',
+          requiredFields: 'Fill in name and email.',
+          appointmentSummary: (dateText, timeText) => `${dateText}, ${timeText}`,
+          successEmail: email => `Confirmation sent to ${email}`
+        },
+        'es-ES': {
+          loading: 'Cargando agenda…',
+          errorLoad: 'Verifique el ID del profesional, la API y los permisos de CORS.',
+          launchKicker: 'Reserva online',
+          meetingTitle: 'Consultoría',
+          meetingDescription: 'Elige el mejor día y horario para reservar.',
+          reserveNow: 'Reservar ahora',
+          chooseDate: 'Elige una fecha',
+          chooseTime: 'Elige un horario',
+          timezone: 'Zona horaria',
+          noTimes: 'No hay horarios disponibles para este día.',
+          next: 'Siguiente',
+          enterDetails: 'Ingresa tus datos',
+          yourName: 'Tu nombre *',
+          yourEmail: 'Tu correo *',
+          whatsapp: 'WhatsApp',
+          meetingAbout: '¿De qué trata esta reunión?',
+          scheduleMeeting: 'Agendar reunión',
+          confirmedTitle: 'Reserva confirmada',
+          confirmedText: 'Tu horario fue reservado con éxito.',
+          newBooking: 'Nueva reserva',
+          durationMinutes: minutes => `${minutes} minutos`,
+          weekdaysShort: ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'],
+          appointmentType: 'Consultoría',
+          failedAvailability: 'No fue posible cargar los horarios de este día.',
+          failedBooking: 'No fue posible completar la reserva.',
+          selectDateFirst: 'Elige una fecha primero.',
+          selectedDatePrefix: '',
+          invalidEmail: 'Ingresa un correo válido.',
+          requiredFields: 'Completa nombre y correo.',
+          appointmentSummary: (dateText, timeText) => `${dateText}, ${timeText}`,
+          successEmail: email => `Confirmación enviada a ${email}`
+        }
+      };
+
+      const state = {
+        apiBaseUrl: DEFAULT_API_BASE,
+        teacherId: null,
+        teacher: null,
+        locale: 'pt-BR',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
+        currentMonth: startOfMonth(new Date()),
+        selectedDate: null,
+        selectedTime: null,
+        availabilityCache: new Map(),
+      };
+
+      const root = document.getElementById('smart-booking-widget');
+      const ui = {
+        loading: document.getElementById('sp-loading'),
+        loadingText: document.getElementById('sp-loading-text'),
+        error: document.getElementById('sp-error'),
+        errorMessage: document.getElementById('sp-error-message'),
+        retryBtn: document.getElementById('sp-retry-btn'),
+        app: document.getElementById('sp-app'),
+        screens: [...document.querySelectorAll('.sp-screen')],
+        launchKicker: document.getElementById('sp-launch-kicker'),
+        launchAvatar: document.getElementById('sp-launch-avatar'),
+        launchBrand: document.getElementById('sp-launch-brand'),
+        meetingTitle: document.getElementById('sp-meeting-title'),
+        meetingDescription: document.getElementById('sp-meeting-description'),
+        metaDuration: document.getElementById('sp-meta-duration'),
+        metaWebsiteWrap: document.getElementById('sp-meta-website-wrap'),
+        metaWebsite: document.getElementById('sp-meta-website'),
+        startBtn: document.getElementById('sp-start-btn'),
+        sideAvatar: document.getElementById('sp-side-avatar'),
+        sideName: document.getElementById('sp-side-name'),
+        sideTitle: document.getElementById('sp-side-title'),
+        sideDuration: document.getElementById('sp-side-duration'),
+        sideDescription: document.getElementById('sp-side-description'),
+        sideWebsiteWrap: document.getElementById('sp-side-website-wrap'),
+        sideWebsite: document.getElementById('sp-side-website'),
+        sideDatetimeWrap: document.getElementById('sp-side-datetime-wrap'),
+        sideDatetime: document.getElementById('sp-side-datetime'),
+        sideTimezoneWrap: document.getElementById('sp-side-timezone-wrap'),
+        sideTimezone: document.getElementById('sp-side-timezone'),
+        stepTitleDate: document.getElementById('sp-step-title-date'),
+        stepTitleTime: document.getElementById('sp-step-title-time'),
+        monthTitle: document.getElementById('sp-month-title'),
+        weekdays: document.getElementById('sp-weekdays'),
+        days: document.getElementById('sp-days'),
+        prevMonth: document.getElementById('sp-prev-month'),
+        nextMonth: document.getElementById('sp-next-month'),
+        timezoneSelect: document.getElementById('sp-timezone'),
+        calendarStep: document.getElementById('sp-calendar-step'),
+        timesStep: document.getElementById('sp-times-step'),
+        timesList: document.getElementById('sp-times-list'),
+        timesEmpty: document.getElementById('sp-times-empty'),
+        selectedDateLabel: document.getElementById('sp-selected-date-label'),
+        formAvatar: document.getElementById('sp-form-avatar'),
+        formName: document.getElementById('sp-form-name'),
+        formTitle: document.getElementById('sp-form-title'),
+        formDuration: document.getElementById('sp-form-duration'),
+        formDatetime: document.getElementById('sp-form-datetime'),
+        formTimezone: document.getElementById('sp-form-timezone'),
+        stepTitleForm: document.getElementById('sp-step-title-form'),
+        inputName: document.getElementById('sp-name'),
+        inputEmail: document.getElementById('sp-email'),
+        inputPhone: document.getElementById('sp-phone'),
+        inputNotes: document.getElementById('sp-notes'),
+        form: document.getElementById('sp-booking-form'),
+        submitBtn: document.getElementById('sp-submit-btn'),
+        successTitle: document.getElementById('sp-success-title'),
+        successText: document.getElementById('sp-success-text'),
+        successProfessional: document.getElementById('sp-success-professional'),
+        successDatetime: document.getElementById('sp-success-datetime'),
+        successEmail: document.getElementById('sp-success-email'),
+        resetBtn: document.getElementById('sp-reset-btn'),
+        backButtons: [...document.querySelectorAll('[data-back]')],
+      };
+
+      ui.retryBtn.addEventListener('click', init);
+      ui.startBtn.addEventListener('click', () => showScreen('schedule'));
+      ui.prevMonth.addEventListener('click', () => {
+        state.currentMonth = addMonths(state.currentMonth, -1);
+        renderCalendar();
+      });
+      ui.nextMonth.addEventListener('click', () => {
+        state.currentMonth = addMonths(state.currentMonth, 1);
+        renderCalendar();
+      });
+      ui.timezoneSelect.addEventListener('change', () => {
+        state.timezone = ui.timezoneSelect.value;
+        renderSidebar();
+        renderFormSidebar();
+      });
+      ui.form.addEventListener('submit', submitBooking);
+      ui.resetBtn.addEventListener('click', resetFlow);
+      ui.backButtons.forEach(btn => btn.addEventListener('click', () => showScreen(btn.dataset.back)));
+
+      init();
+
+      async function init() {
+        try {
+          setLoading(true);
+          hideError();
+          const params = new URLSearchParams(window.location.search);
+          state.teacherId = (params.get('teacherId') || params.get('teacher_id') || '').trim() || (root?.dataset.teacherId || '').trim();
+          state.apiBaseUrl = normalizeBaseUrl((params.get('api') || params.get('apiBaseUrl') || params.get('api_base_url') || root?.dataset.apiBaseUrl || DEFAULT_API_BASE));
+          if (!state.teacherId) throw new Error('Parâmetro teacherId não informado.');
+
+          const teacherRaw = await apiGet(`/teacher/${encodeURIComponent(state.teacherId)}`);
+          state.teacher = normalizeTeacher(teacherRaw);
+          state.locale = state.teacher.languageCode || 'pt-BR';
+          if (!translations[state.locale]) state.locale = state.locale.startsWith('en') ? 'en-US' : state.locale.startsWith('es') ? 'es-ES' : 'pt-BR';
+          state.timezone = state.teacher.timezone || state.timezone || 'America/Sao_Paulo';
+          state.currentMonth = startOfMonth(new Date());
+          state.selectedDate = null;
+          state.selectedTime = null;
+          state.availabilityCache = new Map();
+
+          applyTheme();
+          applyTexts();
+          renderTeacherInfo();
+          populateTimezones();
+          renderCalendar();
+          renderSidebar();
+          renderFormSidebar();
+
+          setLoading(false);
+          ui.app.hidden = false;
+          showScreen('launch');
+        } catch (error) {
+          console.error(error);
+          setLoading(false);
+          showError(error.message || 'Falha ao carregar widget');
+        }
+      }
+
+      function applyTexts() {
+        const t = tr();
+        ui.loadingText.textContent = t.loading;
+        ui.launchKicker.textContent = t.launchKicker;
+        ui.meetingTitle.textContent = state.teacher.meetingTitle || t.meetingTitle;
+        ui.meetingDescription.textContent = state.teacher.description || t.meetingDescription;
+        ui.startBtn.textContent = t.reserveNow;
+        ui.stepTitleDate.textContent = t.chooseDate;
+        ui.stepTitleTime.textContent = t.chooseTime;
+        document.querySelector('label[for="sp-timezone"]').textContent = t.timezone;
+        ui.timesEmpty.textContent = t.noTimes;
+        ui.stepTitleForm.textContent = t.enterDetails;
+        document.querySelector('label[for="sp-name"]').textContent = t.yourName;
+        document.querySelector('label[for="sp-email"]').textContent = t.yourEmail;
+        document.querySelector('label[for="sp-phone"]').textContent = t.whatsapp;
+        document.querySelector('label[for="sp-notes"]').textContent = t.meetingAbout;
+        ui.submitBtn.textContent = t.scheduleMeeting;
+        ui.successTitle.textContent = t.confirmedTitle;
+        ui.successText.textContent = t.confirmedText;
+        ui.resetBtn.textContent = t.newBooking;
+      }
+
+      function renderTeacherInfo() {
+        const teacher = state.teacher;
+        const logoUrl = teacher.logoUrl || 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="100%" height="100%" rx="24" fill="#e9eef5"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="44" fill="#64748b">${escapeHtml((teacher.displayName || 'A').trim().slice(0,1).toUpperCase())}</text></svg>`);
+        [ui.launchAvatar, ui.sideAvatar, ui.formAvatar].forEach(img => { img.src = logoUrl; img.alt = teacher.displayName; });
+        ui.launchBrand.textContent = teacher.displayName;
+        ui.metaDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
+        ui.sideName.textContent = teacher.displayName;
+        ui.sideTitle.textContent = state.teacher.meetingTitle || tr().meetingTitle;
+        ui.sideDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
+        ui.sideDescription.textContent = state.teacher.description || tr().meetingDescription;
+        ui.formName.textContent = teacher.displayName;
+        ui.formTitle.textContent = state.teacher.meetingTitle || tr().meetingTitle;
+        ui.formDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
+        bindWebsite(ui.metaWebsiteWrap, ui.metaWebsite, teacher.website);
+        bindWebsite(ui.sideWebsiteWrap, ui.sideWebsite, teacher.website);
+      }
+
+      function populateTimezones() {
+        const known = new Set(DEFAULT_TIMEZONES.concat(state.teacher.timezone || [], state.timezone || []));
+        ui.timezoneSelect.innerHTML = [...known].filter(Boolean).map(tz => `<option value="${escapeAttr(tz)}">${escapeHtml(tz)}</option>`).join('');
+        ui.timezoneSelect.value = state.timezone;
+      }
+
+      function renderCalendar() {
+        const t = tr();
+        ui.monthTitle.textContent = formatMonthYear(state.currentMonth, state.locale);
+        ui.weekdays.innerHTML = t.weekdaysShort.map(day => `<div class="sp-weekday">${day}</div>`).join('');
+
+        const first = startOfMonth(state.currentMonth);
+        const startWeekday = first.getDay();
+        const daysInMonth = getDaysInMonth(first);
+        const today = stripTime(new Date());
+        const selectedKey = state.selectedDate ? dateKey(state.selectedDate) : null;
+        const cells = [];
+
+        for (let i = 0; i < startWeekday; i += 1) {
+          cells.push('<button class="sp-day" disabled type="button"></button>');
+        }
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const date = new Date(first.getFullYear(), first.getMonth(), day);
+          const disabled = stripTime(date) < today;
+          const key = dateKey(date);
+          const classes = ['sp-day'];
+          if (!disabled) classes.push('is-selectable');
+          if (selectedKey === key) classes.push('is-selected');
+          if (dateKey(today) === key) classes.push('is-today');
+          cells.push(`<button class="${classes.join(' ')}" type="button" ${disabled ? 'disabled' : ''} data-date="${key}">${day}</button>`);
+        }
+
+        ui.days.innerHTML = cells.join('');
+        ui.days.querySelectorAll('[data-date]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            state.selectedDate = parseDateKey(btn.dataset.date);
+            state.selectedTime = null;
+            renderCalendar();
+            renderSidebar();
+            ui.selectedDateLabel.textContent = formatSelectedDay(state.selectedDate);
+            showScreen('schedule');
+            await loadAvailabilityForSelectedDate();
+          });
+        });
+      }
+
+      async function loadAvailabilityForSelectedDate() {
+        if (!state.selectedDate) return;
+        const key = dateKey(state.selectedDate);
+        ui.calendarStep.hidden = false;
+        ui.timesStep.hidden = false;
+        ui.timesList.innerHTML = `<div class="sp-empty">${escapeHtml(tr().loading)}</div>`;
+        ui.timesEmpty.hidden = true;
+
+        try {
+          let slots = state.availabilityCache.get(key);
+          if (!slots) {
+            const raw = await apiGet('/availability/check', {
+              data: key,
+              teacherId: state.teacherId,
+            });
+            slots = normalizeAvailability(raw);
+            state.availabilityCache.set(key, slots);
+          }
+          renderTimes(slots);
+        } catch (error) {
+          console.error(error);
+          ui.timesList.innerHTML = '';
+          ui.timesEmpty.hidden = false;
+          ui.timesEmpty.textContent = tr().failedAvailability;
+        }
+      }
+
+      function renderTimes(slots) {
+        ui.selectedDateLabel.textContent = state.selectedDate ? formatSelectedDay(state.selectedDate) : tr().selectDateFirst;
+        if (!slots || !slots.length) {
+          ui.timesList.innerHTML = '';
+          ui.timesEmpty.hidden = false;
+          return;
+        }
+        ui.timesEmpty.hidden = true;
+        ui.timesList.innerHTML = slots.map(slot => `
+          <button class="sp-time-slot${state.selectedTime === slot ? ' is-selected' : ''}" type="button" data-time="${escapeAttr(slot)}">
+            <span>${escapeHtml(formatSlot(slot))}</span>
+            <span class="sp-time-slot__next">${escapeHtml(tr().next)}</span>
+          </button>
+        `).join('');
+
+        ui.timesList.querySelectorAll('[data-time]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.selectedTime = btn.dataset.time;
+            renderSidebar();
+            renderTimes(slots);
+            renderFormSidebar();
+            showScreen('form');
+          });
+        });
+      }
+
+      function renderSidebar() {
+        const hasDate = !!state.selectedDate;
+        const hasTime = !!state.selectedTime;
+        ui.sideDatetimeWrap.hidden = !(hasDate && hasTime);
+        if (hasDate && hasTime) {
+          ui.sideDatetime.textContent = tr().appointmentSummary(formatDateLong(state.selectedDate), formatSlot(state.selectedTime));
+        }
+        ui.sideTimezoneWrap.hidden = !state.timezone;
+        ui.sideTimezone.textContent = state.timezone || '';
+      }
+
+      function renderFormSidebar() {
+        if (state.selectedDate && state.selectedTime) {
+          ui.formDatetime.textContent = tr().appointmentSummary(formatDateLong(state.selectedDate), formatSlot(state.selectedTime));
+        }
+        ui.formTimezone.textContent = state.timezone || '';
+      }
+
+      async function submitBooking(event) {
+        event.preventDefault();
+        const name = ui.inputName.value.trim();
+        const email = ui.inputEmail.value.trim();
+        const phone = ui.inputPhone.value.trim();
+        if (!name || !email) {
+          alert(tr().requiredFields);
+          return;
+        }
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+          alert(tr().invalidEmail);
+          return;
+        }
+        if (!state.selectedDate || !state.selectedTime) {
+          showScreen('schedule');
+          return;
+        }
+
+        const body = new URLSearchParams({
+          name,
+          email,
+          date: dateKey(state.selectedDate),
+          hour: state.selectedTime,
+          teacherId: state.teacherId,
+          sendEmail: 'true',
+        });
+        if (phone) body.set('phone', phone);
+
+        ui.submitBtn.disabled = true;
+        const originalSubmitText = ui.submitBtn.textContent;
+        ui.submitBtn.textContent = tr().loading;
+        try {
+          await apiPostForm('/booking/create', body);
+          ui.successProfessional.textContent = `${state.teacher.displayName} • ${state.teacher.meetingTitle || tr().meetingTitle}`;
+          ui.successDatetime.textContent = tr().appointmentSummary(formatDateLong(state.selectedDate), formatSlot(state.selectedTime));
+          ui.successEmail.textContent = tr().successEmail(email);
+          showScreen('success');
+        } catch (error) {
+          console.error(error);
+          alert((error && error.message) || tr().failedBooking);
+        } finally {
+          ui.submitBtn.disabled = false;
+          ui.submitBtn.textContent = originalSubmitText;
+        }
+      }
+
+      function resetFlow() {
+        state.selectedDate = null;
+        state.selectedTime = null;
+        ui.form.reset();
+        renderCalendar();
+        renderSidebar();
+        renderFormSidebar();
+        ui.timesList.innerHTML = '';
+        ui.timesStep.hidden = true;
+        showScreen('launch');
+      }
+
+      function showScreen(screen) {
+        ui.screens.forEach(el => el.classList.toggle('is-active', el.dataset.screen === screen));
+        if (screen === 'schedule' && !state.selectedDate) {
+          ui.timesStep.hidden = true;
+        }
+      }
+
+      function showError(message) {
+        ui.loading.hidden = true;
+        ui.app.hidden = true;
+        ui.error.hidden = false;
+        ui.errorMessage.textContent = `${message} ${tr().errorLoad}`;
+      }
+
+      function hideError() {
+        ui.error.hidden = true;
+      }
+
+      function setLoading(isLoading) {
+        ui.loading.hidden = !isLoading;
+        if (isLoading) {
+          ui.error.hidden = true;
+          ui.app.hidden = true;
+        }
+      }
+
+      function applyTheme() {
+        const t = state.teacher;
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--sp-primary', t.primaryColorHex || '#2d6cdf');
+        rootStyle.setProperty('--sp-secondary', t.secondaryColorHex || '#00c2a8');
+        rootStyle.setProperty('--sp-accent', t.accentColorHex || '#111827');
+        rootStyle.setProperty('--sp-bg', t.backgroundColorHex || '#f6f7fb');
+        rootStyle.setProperty('--sp-text', t.textColorHex || '#111827');
+        rootStyle.setProperty('--sp-border', t.borderColorHex || '#e5e7eb');
+        rootStyle.setProperty('--sp-font', t.fontFamily || 'Arial, Helvetica, sans-serif');
+        rootStyle.setProperty('--sp-font-size', `${Math.max(14, Number(t.fontSize || 16))}px`);
+        root.style.background = t.backgroundColorHex || '#f6f7fb';
+        root.style.padding = '12px';
+      }
+
+      function bindWebsite(wrapper, anchor, website) {
+        if (!website) {
+          wrapper.hidden = true;
+          anchor.removeAttribute('href');
+          anchor.textContent = '';
+          return;
+        }
+        wrapper.hidden = false;
+        anchor.href = website;
+        anchor.textContent = website;
+      }
+
+      function normalizeTeacher(raw) {
+        const data = raw && typeof raw === 'object' ? raw : {};
+        const config = toObject(data.config);
+        const theme = toObject(data.theme);
+        const logoUrl = stringValue(data.logoUrl) || stringValue(data.logo_url);
+        const displayName = stringValue(data.companyName) || stringValue(data.company_name) || stringValue(data.brandName) || stringValue(data.brand_name) || stringValue(data.name) || 'Agenda';
+        return {
+          id: stringValue(data.id) || stringValue(data._id) || '',
+          displayName,
+          name: stringValue(data.name) || displayName,
+          logoUrl,
+          website: stringValue(data.website) || stringValue(data.site) || stringValue(data.link),
+          description: stringValue(data.description) || stringValue(data.bio) || '',
+          meetingTitle: stringValue(data.meetingTitle) || stringValue(data.serviceName) || '',
+          lessonDurationMinutes: numberValue(config.lessonDurationMinutes, 60),
+          timezone: stringValue(config.timezone) || 'America/Sao_Paulo',
+          languageCode: normalizeLocaleCode(stringValue(data.languageCode) || stringValue(data.language_code) || 'pt-BR'),
+          primaryColorHex: normalizeHex(stringValue(theme.primaryColorHex) || stringValue(theme.primary_color_hex), '#2D6CDF'),
+          secondaryColorHex: normalizeHex(stringValue(theme.secondaryColorHex) || stringValue(theme.secondary_color_hex), '#00C2A8'),
+          accentColorHex: normalizeHex(stringValue(theme.accentColorHex) || stringValue(theme.accent_color_hex), '#111827'),
+          backgroundColorHex: normalizeHex(stringValue(theme.backgroundColorHex) || stringValue(theme.background_color_hex), '#F6F7FB'),
+          textColorHex: normalizeHex(stringValue(theme.textColorHex) || stringValue(theme.text_color_hex), '#111827'),
+          borderColorHex: normalizeHex(stringValue(theme.borderColorHex) || stringValue(theme.border_color_hex), '#E5E7EB'),
+          fontFamily: stringValue(theme.fontFamily) || 'Arial, Helvetica, sans-serif',
+          fontSize: numberValue(theme.fontSize, 16),
+        };
+      }
+
+      function normalizeAvailability(raw) {
+        const map = toObject(raw);
+        const slots = Array.isArray(map.horariosDisponiveis) ? map.horariosDisponiveis : [];
+        return slots.map(item => toObject(item).inicio).filter(Boolean).map(String);
+      }
+
+      function tr() {
+        return translations[state.locale] || translations['pt-BR'];
+      }
+
+      async function apiGet(path, query) {
+        const url = new URL(state.apiBaseUrl + ensurePath(path));
+        if (query) Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, value));
+        const response = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+        return parseResponse(response);
+      }
+
+      async function apiPostForm(path, body) {
+        const response = await fetch(state.apiBaseUrl + ensurePath(path), {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: body.toString(),
+        });
+        return parseResponse(response);
+      }
+
+      async function parseResponse(response) {
+        const text = (await response.text()).trim();
+        let parsed = text;
+        try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
+        if (!response.ok) {
+          const message = typeof parsed === 'string' ? parsed : parsed?.message || parsed?.error || parsed?.detail || 'Falha ao comunicar com a API.';
+          throw new Error(message);
+        }
+        return parsed;
+      }
+
+      function ensurePath(path) { return path.startsWith('/') ? path : `/${path}`; }
+      function normalizeBaseUrl(value) { return String(value || '').replace(/\/+$/, ''); }
+      function toObject(value) { return value && typeof value === 'object' ? value : {}; }
+      function stringValue(value) { return typeof value === 'string' && value.trim() ? value.trim() : ''; }
+      function numberValue(value, fallback) {
+        const n = Number(value);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+      }
+      function normalizeHex(value, fallback) {
+        const raw = String(value || '').trim();
+        if (!raw) return fallback;
+        return raw.startsWith('#') ? raw : `#${raw}`;
+      }
+      function normalizeLocaleCode(value) {
+        const raw = String(value || '').trim().replace('_', '-');
+        if (!raw) return 'pt-BR';
+        if (raw.toLowerCase().startsWith('en')) return 'en-US';
+        if (raw.toLowerCase().startsWith('es')) return 'es-ES';
+        return 'pt-BR';
+      }
+      function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
+      function addMonths(date, amount) { return new Date(date.getFullYear(), date.getMonth() + amount, 1); }
+      function getDaysInMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate(); }
+      function stripTime(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
+      function dateKey(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      }
+      function parseDateKey(key) {
+        const [y, m, d] = key.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      }
+      function formatMonthYear(date, locale) {
+        return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date).replace(/^./, m => m.toUpperCase());
+      }
+      function formatDateLong(date) {
+        return new Intl.DateTimeFormat(state.locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+      }
+      function formatSelectedDay(date) {
+        return new Intl.DateTimeFormat(state.locale, { weekday: 'short', day: '2-digit', month: 'short' }).format(date).replace(/^./, m => m.toUpperCase());
+      }
+      function formatSlot(slot) {
+        return slot;
+      }
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+      function escapeAttr(value) { return escapeHtml(value); }
+    })();
+  </script>
+</body>
+</html>
