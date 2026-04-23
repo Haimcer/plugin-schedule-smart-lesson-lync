@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Pública Booking Widget</title>
+  <title>Smartlesson</title>
  <style>
   :root {
     --sp-primary: #2d6cdf;
@@ -751,8 +751,8 @@
                 <input class="sp-input" id="sp-email" name="email" type="email" required autocomplete="email" />
               </div>
               <div class="sp-form__row">
-                <label class="sp-label" for="sp-phone">WhatsApp</label>
-                <input class="sp-input" id="sp-phone" name="phone" autocomplete="tel" />
+                <label class="sp-label" for="sp-phone">WhatsApp *</label>
+                <input class="sp-input" id="sp-phone" name="phone" required autocomplete="tel" />
               </div>
               <div class="sp-form__row">
                 <label class="sp-label" for="sp-notes">Sobre o que é esta reunião?</label>
@@ -817,7 +817,7 @@
           enterDetails: 'Digite os detalhes',
           yourName: 'Seu nome *',
           yourEmail: 'Seu e-mail *',
-          whatsapp: 'WhatsApp',
+          whatsapp: 'WhatsApp *',
           meetingAbout: 'Sobre o que é esta reunião?',
           scheduleMeeting: 'Agendar reunião',
           confirmedTitle: 'Agendamento confirmado',
@@ -831,7 +831,8 @@
           selectDateFirst: 'Escolha uma data primeiro.',
           selectedDatePrefix: '',
           invalidEmail: 'Digite um e-mail válido.',
-          requiredFields: 'Preencha nome e e-mail.',
+          invalidPhone: 'Preencha o WhatsApp.',
+          requiredFields: 'Preencha nome, e-mail e WhatsApp.',
           appointmentSummary: (dateText, timeText) => `${timeText}, ${dateText}`,
           successEmail: email => `Confirmação enviada para ${email}`
         },
@@ -850,7 +851,7 @@
           enterDetails: 'Enter your details',
           yourName: 'Your name *',
           yourEmail: 'Your email *',
-          whatsapp: 'WhatsApp',
+          whatsapp: 'WhatsApp *',
           meetingAbout: 'What is this meeting about?',
           scheduleMeeting: 'Schedule meeting',
           confirmedTitle: 'Booking confirmed',
@@ -864,7 +865,8 @@
           selectDateFirst: 'Choose a date first.',
           selectedDatePrefix: '',
           invalidEmail: 'Enter a valid email.',
-          requiredFields: 'Fill in name and email.',
+          invalidPhone: 'Enter your WhatsApp.',
+          requiredFields: 'Fill in name, email and WhatsApp.',
           appointmentSummary: (dateText, timeText) => `${dateText}, ${timeText}`,
           successEmail: email => `Confirmation sent to ${email}`
         },
@@ -883,7 +885,7 @@
           enterDetails: 'Ingresa tus datos',
           yourName: 'Tu nombre *',
           yourEmail: 'Tu correo *',
-          whatsapp: 'WhatsApp',
+          whatsapp: 'WhatsApp *',
           meetingAbout: '¿De qué trata esta reunión?',
           scheduleMeeting: 'Agendar reunión',
           confirmedTitle: 'Reserva confirmada',
@@ -897,7 +899,8 @@
           selectDateFirst: 'Elige una fecha primero.',
           selectedDatePrefix: '',
           invalidEmail: 'Ingresa un correo válido.',
-          requiredFields: 'Completa nombre y correo.',
+          invalidPhone: 'Completa el WhatsApp.',
+          requiredFields: 'Completa nombre, correo y WhatsApp.',
           appointmentSummary: (dateText, timeText) => `${dateText}, ${timeText}`,
           successEmail: email => `Confirmación enviada a ${email}`
         }
@@ -979,8 +982,23 @@
         backButtons: [...document.querySelectorAll('[data-back]')],
       };
 
+      function notifyParentResize(expanded) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: expanded ? 'smartlesson-expand' : 'smartlesson-collapse',
+            height: expanded ? 980 : 150
+          }, '*');
+        }
+      }
+
+      function isExpandedScreen(screen) {
+        return ['schedule', 'form', 'success'].includes(screen);
+      }
+
       ui.retryBtn.addEventListener('click', init);
-      ui.startBtn.addEventListener('click', () => showScreen('schedule'));
+      ui.startBtn.addEventListener('click', () => {
+        showScreen('schedule');
+      });
       ui.prevMonth.addEventListener('click', () => {
         state.currentMonth = addMonths(state.currentMonth, -1);
         renderCalendar();
@@ -1196,17 +1214,21 @@
 
       async function submitBooking(event) {
         event.preventDefault();
+
         const name = ui.inputName.value.trim();
         const email = ui.inputEmail.value.trim();
         const phone = ui.inputPhone.value.trim();
-        if (!name || !email) {
+
+        if (!name || !email || !phone) {
           alert(tr().requiredFields);
           return;
         }
+
         if (!/^\S+@\S+\.\S+$/.test(email)) {
           alert(tr().invalidEmail);
           return;
         }
+
         if (!state.selectedDate || !state.selectedTime) {
           showScreen('schedule');
           return;
@@ -1220,11 +1242,13 @@
           teacherId: state.teacherId,
           sendEmail: 'true',
         });
-        if (phone) body.set('phone', phone);
+
+        body.set('phone', phone);
 
         ui.submitBtn.disabled = true;
         const originalSubmitText = ui.submitBtn.textContent;
         ui.submitBtn.textContent = tr().loading;
+
         try {
           await apiPostForm('/booking/create', body);
           ui.successProfessional.textContent = `${state.teacher.displayName} • ${state.teacher.meetingTitle || tr().meetingTitle}`;
@@ -1254,9 +1278,12 @@
 
       function showScreen(screen) {
         ui.screens.forEach(el => el.classList.toggle('is-active', el.dataset.screen === screen));
+
         if (screen === 'schedule' && !state.selectedDate) {
           ui.timesStep.hidden = true;
         }
+
+        notifyParentResize(isExpandedScreen(screen));
       }
 
       function showError(message) {
