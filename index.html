@@ -982,17 +982,47 @@
         backButtons: [...document.querySelectorAll('[data-back]')],
       };
 
+      function getWidgetHeight() {
+        const app = document.getElementById('sp-app');
+        if (!app) return 150;
+
+        const activeScreen = document.querySelector('.sp-screen.is-active');
+        if (!activeScreen) return 150;
+
+        const activeCard = activeScreen.querySelector('.sp-card') || activeScreen;
+
+        const height = Math.max(
+          activeCard.scrollHeight,
+          activeCard.offsetHeight,
+          activeScreen.scrollHeight,
+          activeScreen.offsetHeight,
+          app.scrollHeight,
+          app.offsetHeight,
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight
+        );
+
+        return Math.max(150, Math.ceil(height + 32));
+      }
+
       function notifyParentResize(expanded) {
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({
-            type: expanded ? 'smartlesson-expand' : 'smartlesson-collapse',
-            height: expanded ? 980 : 150
-          }, '*');
-        }
+        if (!window.parent || window.parent === window) return;
+
+        const height = expanded ? getWidgetHeight() : 150;
+
+        window.parent.postMessage({
+          type: expanded ? 'smartlesson-expand' : 'smartlesson-collapse',
+          height
+        }, '*');
       }
 
       function isExpandedScreen(screen) {
         return ['schedule', 'form', 'success'].includes(screen);
+      }
+
+      function syncParentHeight() {
+        const currentScreen = document.querySelector('.sp-screen.is-active')?.dataset.screen;
+        notifyParentResize(!!currentScreen && isExpandedScreen(currentScreen));
       }
 
       ui.retryBtn.addEventListener('click', init);
@@ -1015,6 +1045,14 @@
       ui.form.addEventListener('submit', submitBooking);
       ui.resetBtn.addEventListener('click', resetFlow);
       ui.backButtons.forEach(btn => btn.addEventListener('click', () => showScreen(btn.dataset.back)));
+
+      window.addEventListener('resize', () => {
+        requestAnimationFrame(syncParentHeight);
+      });
+
+      window.addEventListener('load', () => {
+        requestAnimationFrame(syncParentHeight);
+      });
 
       init();
 
@@ -1139,6 +1177,8 @@
             await loadAvailabilityForSelectedDate();
           });
         });
+
+        requestAnimationFrame(syncParentHeight);
       }
 
       async function loadAvailabilityForSelectedDate() {
@@ -1173,6 +1213,7 @@
         if (!slots || !slots.length) {
           ui.timesList.innerHTML = '';
           ui.timesEmpty.hidden = false;
+          requestAnimationFrame(syncParentHeight);
           return;
         }
         ui.timesEmpty.hidden = true;
@@ -1192,6 +1233,8 @@
             showScreen('form');
           });
         });
+
+        requestAnimationFrame(syncParentHeight);
       }
 
       function renderSidebar() {
@@ -1283,7 +1326,10 @@
           ui.timesStep.hidden = true;
         }
 
-        notifyParentResize(isExpandedScreen(screen));
+        requestAnimationFrame(() => {
+          syncParentHeight();
+          setTimeout(syncParentHeight, 120);
+        });
       }
 
       function showError(message) {
