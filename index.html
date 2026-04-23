@@ -801,6 +801,45 @@
         'UTC'
       ];
 
+      const SERVICE_PRESETS = {
+        consultoria: {
+          launchKicker: 'Agendamento de consultoria',
+          meetingTitle: 'Consultoria estratégica',
+          meetingDescription: 'Escolha o melhor dia e horário para sua consultoria.',
+          ctaLabel: 'Reservar consultoria',
+        },
+        professor: {
+          launchKicker: 'Agendamento de aula',
+          meetingTitle: 'Aula experimental',
+          meetingDescription: 'Escolha o melhor dia e horário para agendar sua aula.',
+          ctaLabel: 'Reservar aula',
+        },
+        vendedor: {
+          launchKicker: 'Atendimento comercial',
+          meetingTitle: 'Falar com um especialista',
+          meetingDescription: 'Escolha o melhor dia e horário para falar com um especialista.',
+          ctaLabel: 'Falar com um especialista',
+        },
+        comercial: {
+          launchKicker: 'Atendimento comercial',
+          meetingTitle: 'Falar com um especialista',
+          meetingDescription: 'Escolha o melhor dia e horário para falar com um especialista.',
+          ctaLabel: 'Falar com um especialista',
+        },
+        suporte: {
+          launchKicker: 'Suporte agendado',
+          meetingTitle: 'Suporte técnico',
+          meetingDescription: 'Escolha o melhor dia e horário para falar com o suporte.',
+          ctaLabel: 'Agendar suporte',
+        },
+        reuniao: {
+          launchKicker: 'Agendamento online',
+          meetingTitle: 'Reunião online',
+          meetingDescription: 'Escolha o melhor dia e horário para agendar.',
+          ctaLabel: 'Reservar agora',
+        },
+      };
+
       const translations = {
         'pt-BR': {
           loading: 'Carregando agenda…',
@@ -910,6 +949,7 @@
         apiBaseUrl: DEFAULT_API_BASE,
         teacherId: null,
         teacher: null,
+        widgetContent: null,
         locale: 'pt-BR',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
         currentMonth: startOfMonth(new Date()),
@@ -1063,6 +1103,7 @@
           const params = new URLSearchParams(window.location.search);
           state.teacherId = (params.get('teacherId') || params.get('teacher_id') || '').trim() || (root?.dataset.teacherId || '').trim();
           state.apiBaseUrl = normalizeBaseUrl((params.get('api') || params.get('apiBaseUrl') || params.get('api_base_url') || root?.dataset.apiBaseUrl || DEFAULT_API_BASE));
+          state.widgetContent = resolveWidgetContent(params);
           if (!state.teacherId) throw new Error('Parâmetro teacherId não informado.');
 
           const teacherRaw = await apiGet(`/teacher/${encodeURIComponent(state.teacherId)}`);
@@ -1096,10 +1137,10 @@
       function applyTexts() {
         const t = tr();
         ui.loadingText.textContent = t.loading;
-        ui.launchKicker.textContent = t.launchKicker;
-        ui.meetingTitle.textContent = state.teacher.meetingTitle || t.meetingTitle;
-        ui.meetingDescription.textContent = state.teacher.description || t.meetingDescription;
-        ui.startBtn.textContent = t.reserveNow;
+        ui.launchKicker.textContent = getLaunchKicker() || t.launchKicker;
+        ui.meetingTitle.textContent = getMeetingTitle() || t.meetingTitle;
+        ui.meetingDescription.textContent = getMeetingDescription() || t.meetingDescription;
+        ui.startBtn.textContent = getCtaLabel() || t.reserveNow;
         ui.stepTitleDate.textContent = t.chooseDate;
         ui.stepTitleTime.textContent = t.chooseTime;
         document.querySelector('label[for="sp-timezone"]').textContent = t.timezone;
@@ -1119,15 +1160,19 @@
         const teacher = state.teacher;
         const logoUrl = teacher.logoUrl || 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="100%" height="100%" rx="24" fill="#e9eef5"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="44" fill="#64748b">${escapeHtml((teacher.displayName || 'A').trim().slice(0,1).toUpperCase())}</text></svg>`);
         [ui.launchAvatar, ui.sideAvatar, ui.formAvatar].forEach(img => { img.src = logoUrl; img.alt = teacher.displayName; });
+        const durationMinutes = getDurationMinutes();
+        const meetingTitle = getMeetingTitle() || tr().meetingTitle;
+        const meetingDescription = getMeetingDescription() || tr().meetingDescription;
+
         ui.launchBrand.textContent = teacher.displayName;
-        ui.metaDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
+        ui.metaDuration.textContent = tr().durationMinutes(durationMinutes);
         ui.sideName.textContent = teacher.displayName;
-        ui.sideTitle.textContent = state.teacher.meetingTitle || tr().meetingTitle;
-        ui.sideDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
-        ui.sideDescription.textContent = state.teacher.description || tr().meetingDescription;
+        ui.sideTitle.textContent = meetingTitle;
+        ui.sideDuration.textContent = tr().durationMinutes(durationMinutes);
+        ui.sideDescription.textContent = meetingDescription;
         ui.formName.textContent = teacher.displayName;
-        ui.formTitle.textContent = state.teacher.meetingTitle || tr().meetingTitle;
-        ui.formDuration.textContent = tr().durationMinutes(teacher.lessonDurationMinutes);
+        ui.formTitle.textContent = meetingTitle;
+        ui.formDuration.textContent = tr().durationMinutes(durationMinutes);
         bindWebsite(ui.metaWebsiteWrap, ui.metaWebsite, teacher.website);
         bindWebsite(ui.sideWebsiteWrap, ui.sideWebsite, teacher.website);
       }
@@ -1294,7 +1339,7 @@
 
         try {
           await apiPostForm('/booking/create', body);
-          ui.successProfessional.textContent = `${state.teacher.displayName} • ${state.teacher.meetingTitle || tr().meetingTitle}`;
+          ui.successProfessional.textContent = `${state.teacher.displayName} • ${getMeetingTitle() || tr().meetingTitle}`;
           ui.successDatetime.textContent = tr().appointmentSummary(formatDateLong(state.selectedDate), formatSlot(state.selectedTime));
           ui.successEmail.textContent = tr().successEmail(email);
           showScreen('success');
@@ -1412,6 +1457,47 @@
         return slots.map(item => toObject(item).inicio).filter(Boolean).map(String);
       }
 
+      function resolveWidgetContent(params) {
+        const presetKey = stringValue(
+          params.get('preset') ||
+          params.get('service') ||
+          params.get('serviceType') ||
+          params.get('mode') ||
+          params.get('kind')
+        ).toLowerCase();
+
+        const preset = SERVICE_PRESETS[presetKey] || {};
+
+        return {
+          presetKey,
+          launchKicker: stringValue(params.get('kicker')) || preset.launchKicker || '',
+          meetingTitle: stringValue(params.get('title') || params.get('meetingTitle')) || preset.meetingTitle || '',
+          meetingDescription: stringValue(params.get('description') || params.get('desc')) || preset.meetingDescription || '',
+          ctaLabel: stringValue(params.get('cta') || params.get('button')) || preset.ctaLabel || '',
+          durationMinutesOverride: parsePositiveNumber(params.get('duration') || params.get('durationMinutes')),
+        };
+      }
+
+      function getLaunchKicker() {
+        return stringValue(state.widgetContent?.launchKicker);
+      }
+
+      function getMeetingTitle() {
+        return stringValue(state.widgetContent?.meetingTitle) || stringValue(state.teacher?.meetingTitle);
+      }
+
+      function getMeetingDescription() {
+        return stringValue(state.widgetContent?.meetingDescription) || stringValue(state.teacher?.description);
+      }
+
+      function getCtaLabel() {
+        return stringValue(state.widgetContent?.ctaLabel);
+      }
+
+      function getDurationMinutes() {
+        return parsePositiveNumber(state.widgetContent?.durationMinutesOverride) || numberValue(state.teacher?.lessonDurationMinutes, 60);
+      }
+
       function tr() {
         return translations[state.locale] || translations['pt-BR'];
       }
@@ -1453,6 +1539,10 @@
       function numberValue(value, fallback) {
         const n = Number(value);
         return Number.isFinite(n) && n > 0 ? n : fallback;
+      }
+      function parsePositiveNumber(value) {
+        const n = Number(value);
+        return Number.isFinite(n) && n > 0 ? n : null;
       }
       function normalizeHex(value, fallback) {
         const raw = String(value || '').trim();
